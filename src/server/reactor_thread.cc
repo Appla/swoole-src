@@ -1154,6 +1154,7 @@ static int swReactorThread_loop(swThreadParam *param)
 #else
     SW_START_SLEEP;
 #endif
+    //swReactorPoll_wait(reactor, NULL);
     //main loop
     reactor->wait(reactor, NULL);
     //shutdown

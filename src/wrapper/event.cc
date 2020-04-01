@@ -74,6 +74,8 @@ int swoole_event_wait()
     int retval = 0;
     if (!reactor->is_empty(reactor))
     {
+        // added
+        //swReactorEpoll_wait(SwooleTG.reactor, nullptr);
         retval = SwooleTG.reactor->wait(SwooleTG.reactor, nullptr);
     }
     swoole_event_free();

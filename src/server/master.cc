@@ -177,6 +177,8 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
             ev.type = SW_SERVER_EVENT_INCOMING;
             ev.fd = sock->fd;
             swSocket *_pipe_sock = swServer_get_send_pipe(serv, conn->session_id, conn->reactor_id);
+            //self added to debug
+            swReactor_write(reactor, _pipe_sock, &ev, sizeof(ev));
             if (reactor->write(reactor, _pipe_sock, &ev, sizeof(ev)) < 0)
             {
                 reactor->close(reactor, sock);

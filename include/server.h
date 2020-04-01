@@ -1002,6 +1002,10 @@ void swServer_connection_each(swServer *serv, void (*callback)(swConnection *con
  */
 static sw_inline swSocket* swServer_get_send_pipe(swServer *serv, int session_id, int reactor_id)
 {
+    // 8/2
+    // 4
+    // 2 *
+    //serv->reactor_pipe_num = serv->worker_num / serv->reactor_num;
     int pipe_index = session_id % serv->reactor_pipe_num;
     /**
      * pipe_worker_id: The pipe in which worker.

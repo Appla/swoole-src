@@ -831,6 +831,7 @@ int swWorker_send2worker(swWorker *dst_worker, const void *buf, int n, int flag)
 
     if ((flag & SW_PIPE_NONBLOCK) && SwooleTG.reactor)
     {
+        swReactor_write(SwooleTG.reactor, pipe_sock, buf, n);
         return SwooleTG.reactor->write(SwooleTG.reactor, pipe_sock, buf, n);
     }
     else
