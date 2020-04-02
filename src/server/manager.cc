@@ -169,7 +169,7 @@ static sw_inline int swManager_spawn_user_workers(swServer *serv)
     return SW_OK;
 }
 
-//create worker child proccess
+//create worker child processes from manager
 int swManager_start(swServer *serv)
 {
     uint32_t i;
@@ -177,16 +177,19 @@ int swManager_start(swServer *serv)
 
     if (serv->task_worker_num > 0)
     {
+        //prepare task workers, 所有task worker的细节manager要知道的
         if (swServer_create_task_workers(serv) < 0)
         {
             return SW_ERR;
         }
+        //设置回调之类的
         swTaskWorker_init(serv);
 
         swWorker *worker;
         for (i = 0; i < serv->task_worker_num; i++)
         {
             worker = &serv->gs->task_workers.workers[i];
+            //mutex
             if (swServer_worker_create(serv, worker) < 0)
             {
                 return SW_ERR;
@@ -218,6 +221,7 @@ int swManager_start(swServer *serv)
         }
     }
 
+    //和worker之间使用这个通讯, swChannel_push(), 主要是存储worker退出的消息, manager及时的拉起新的worker来
     serv->message_box = swChannel_new(65536, sizeof(swWorkerStopMessage), SW_CHAN_LOCK | SW_CHAN_SHM);
     if (serv->message_box == NULL)
     {
@@ -236,15 +240,23 @@ int swManager_start(swServer *serv)
             return SW_OK;
         }
         swServer_close_port(serv, SW_TRUE);
-        
+        /**
+         * create task worker process, task workers
+         */
         if (swManager_spawn_task_workers(serv) < 0)
         {
             return SW_ERR;
         }
+        /**
+         * create worker process
+         */
         if (swManager_spawn_workers(serv) < 0)
         {
             return SW_ERR;
         }
+        /**
+         * create user worker process
+         */
         if (swManager_spawn_user_workers(serv) < 0)
         {
             return SW_ERR;
@@ -252,6 +264,7 @@ int swManager_start(swServer *serv)
 
         SwooleG.process_type = SW_PROCESS_MANAGER;
         SwooleG.pid = getpid();
+        //manager's event loop
         exit(swManager_loop(serv));
         break;
 

@@ -427,10 +427,12 @@ void swWorker_onStart(swServer *serv)
     for (uint32_t i = 0; i < serv->worker_num + serv->task_worker_num; i++)
     {
         swWorker *worker = swServer_get_worker(serv, i);
+        //不是自己的
         if (SwooleWG.id == i)
         {
             continue;
         }
+        //设置对应的pipe_master为nonblock
         if (swIsWorker() && worker->pipe_master)
         {
             swSocket_set_nonblock(worker->pipe_master);
@@ -440,6 +442,7 @@ void swWorker_onStart(swServer *serv)
     SwooleWG.worker = swServer_get_worker(serv, SwooleWG.id);
     SwooleWG.worker->status = SW_WORKER_IDLE;
 
+    //多线程的
     if (serv->factory_mode == SW_MODE_PROCESS)
     {
         sw_shm_protect(serv->session_list, PROT_READ);
@@ -459,6 +462,7 @@ void swWorker_onStart(swServer *serv)
     }
 #endif
 
+    //启动时的回调
     swServer_worker_start(serv, SwooleWG.worker);
 }
 

@@ -59,6 +59,7 @@ void swReactorProcess_free(swServer *serv)
     sw_free(serv->connection_list);
 }
 
+// BASE MODE reactor thread
 int swReactorProcess_start(swServer *serv)
 {
     swListenPort *ls;
@@ -95,6 +96,7 @@ int swReactorProcess_start(swServer *serv)
     }
 
     swProcessPool *pool = &serv->gs->event_workers;
+    //创建event_worker的IPC相关的, 还是UDP的
     if (swProcessPool_create(pool, serv->worker_num, 0, SW_IPC_UNIXSOCK) < 0)
     {
         return SW_ERR;
@@ -107,6 +109,7 @@ int swReactorProcess_start(swServer *serv)
     serv->gs->event_workers.ptr = serv;
     serv->gs->event_workers.max_wait_time = serv->max_wait_time;
     serv->gs->event_workers.use_msgqueue = 0;
+    // event worker同时是reactor
     serv->gs->event_workers.main_loop = swReactorProcess_loop;
     serv->gs->event_workers.onWorkerNotFound = swManager_wait_other_worker;
 
@@ -135,11 +138,13 @@ int swReactorProcess_start(swServer *serv)
     //task workers
     if (serv->task_worker_num > 0)
     {
+        //也会通过上面的 swProcessPool_create创建IPC
         if (swServer_create_task_workers(serv) < 0)
         {
             return SW_ERR;
         }
         swTaskWorker_init(serv);
+        //fork and run task worker
         if (swProcessPool_start(&serv->gs->task_workers) < 0)
         {
             return SW_ERR;
@@ -167,6 +172,7 @@ int swReactorProcess_start(swServer *serv)
             {
                 swServer_store_pipe_fd(serv, user_worker->worker->pipe_object);
             }
+            //fork user process
             swManager_spawn_user_worker(serv, user_worker->worker);
         }
     }
@@ -182,15 +188,18 @@ int swReactorProcess_start(swServer *serv)
      */
     SwooleG.use_signalfd = 0;
 
+    //start event worker, direct fork
     swProcessPool_start(&serv->gs->event_workers);
     swServer_signal_init(serv);
 
+    //BASE PROCESS on server start
     if (serv->onStart)
     {
         swWarn("The onStart event with SWOOLE_BASE is deprecated");
         serv->onStart(serv);
     }
 
+    //BASE PROCESS also is manager
     if (serv->onManagerStart)
     {
         serv->onManagerStart(serv);
@@ -287,6 +296,7 @@ static void swReactor_free_output_buffer(int n_buffer)
     sw_free(SwooleWG.output_buffer);
 }
 
+//reactor process loop / base event worker main loop is this also
 static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
 {
     swServer *serv = (swServer *) pool->ptr;
@@ -334,6 +344,7 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
     swListenPort *ls;
     int fdtype;
 
+    //监听TCP的, reuse port
     LL_FOREACH(serv->listen_list, ls)
     {
         fdtype = swSocket_is_dgram(ls->type) ? SW_FD_DGRAM_SERVER : SW_FD_STREAM_SERVER;
@@ -366,10 +377,11 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
 
     reactor->max_socket = serv->max_connection;
 
+    //回收资源
     reactor->close = swReactorThread_close;
 
     //set event handler
-    //connect
+    //connect, 每个event worker处理
     swReactor_set_handler(reactor, SW_FD_STREAM_SERVER, swServer_master_onAccept);
     //close
     reactor->default_error_handler = swReactorProcess_onClose;
@@ -378,6 +390,7 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
 
     swServer_store_listen_socket(serv);
 
+    // 这种情况下, pipe_worker和pipe_master的用途是???
     if (worker->pipe_worker)
     {
         swSocket_set_nonblock(worker->pipe_worker);
@@ -392,7 +405,7 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
         }
     }
 
-    //task workers
+    //task workers, 这时候是和event worker通讯的了
     if (serv->task_worker_num > 0)
     {
         if (serv->task_ipc_mode == SW_TASK_IPC_UNIXSOCK)
@@ -427,6 +440,7 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
         return SW_ERR;
     }
 
+    //触发worker相关的事件, 部分状态检查等
     swWorker_onStart(serv);
 
     /**
@@ -441,6 +455,8 @@ static int swReactorProcess_loop(swProcessPool *pool, swWorker *worker)
         }
     }
 
+    //事件循环开始
+    //比如是 swReactorEpoll_wait(reactor, NULL)
     int retval = reactor->wait(reactor, NULL);
 
     /**

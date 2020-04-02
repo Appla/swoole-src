@@ -872,6 +872,7 @@ int swReactorThread_start(swServer *serv)
         reactor->add(reactor, ls->socket, SW_EVENT_READ);
     }
 
+    //用途???
     if (serv->stream_socket)
     {
         swSocket_free(serv->stream_socket);
@@ -1000,6 +1001,7 @@ static int swReactorThread_init(swServer *serv, swReactor *reactor, uint16_t rea
     swReactor_set_handler(reactor, SW_FD_PIPE | SW_EVENT_READ, swReactorThread_onPipeRead);
     swReactor_set_handler(reactor, SW_FD_PIPE | SW_EVENT_WRITE, swReactorThread_onPipeWrite);
 
+    //reactor thread will also listen UDP socket
     //listen UDP port
     if (serv->have_dgram_sock == 1)
     {
@@ -1135,14 +1137,17 @@ static int swReactorThread_loop(swThreadParam *param)
     }
 #endif
 
+    //each thread has its own reactor
     ret = swReactor_create(reactor, SW_REACTOR_MAXEVENTS);
     if (ret < 0)
     {
         return SW_ERR;
     }
 
+    //no signal handler
     swSignal_none();
 
+    //init thread
     if (swReactorThread_init(serv, reactor, reactor_id) < 0)
     {
         return SW_ERR;

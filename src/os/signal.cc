@@ -272,6 +272,7 @@ int swSignalfd_setup(swReactor *reactor)
             swSysWarn("sigprocmask() failed");
             return SW_ERR;
         }
+        //signalfd 通讯效率更高啊
         swReactor_set_handler(reactor, SW_FD_SIGNAL, swSignalfd_onSignal);
         if (swoole_event_add(signal_socket, SW_EVENT_READ) < 0)
         {
@@ -304,6 +305,7 @@ static void swSignalfd_clear()
     signal_fd = 0;
 }
 
+//处理signalfd的信号
 static int swSignalfd_onSignal(swReactor *reactor, swEvent *event)
 {
     int n;
@@ -319,6 +321,7 @@ static int swSignalfd_onSignal(swReactor *reactor, swEvent *event)
         swWarn("unknown signal[%d]", siginfo.ssi_signo);
         return SW_OK;
     }
+    //每个信号都有对应的handler, 分别处理
     if (signals[siginfo.ssi_signo].active)
     {
         if (signals[siginfo.ssi_signo].handler)

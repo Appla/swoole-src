@@ -59,7 +59,7 @@ static void swProcessPool_kill_timeout_worker(swTimer *timer, swTimer_node *tnod
     pool->reload_init = 0;
 }
 /**
- * Process manager
+ * Process manager/BaseModeReactor Process run, to create task worker IPC etc
  */
 int swProcessPool_create(swProcessPool *pool, uint32_t worker_num, key_t msgqueue_key, int ipc_mode)
 {
@@ -79,6 +79,7 @@ int swProcessPool_create(swProcessPool *pool, uint32_t worker_num, key_t msgqueu
         return SW_ERR;
     }
 
+    //msgq
     if (ipc_mode == SW_IPC_MSGQUEUE)
     {
         pool->use_msgqueue = 1;
@@ -109,6 +110,7 @@ int swProcessPool_create(swProcessPool *pool, uint32_t worker_num, key_t msgqueu
         for (i = 0; i < worker_num; i++)
         {
             pipe = &pool->pipes[i];
+            //依然是UDP的~~
             if (swPipeUnsock_create(pipe, 1, SOCK_DGRAM) < 0)
             {
                 return SW_ERR;
@@ -144,6 +146,7 @@ int swProcessPool_create(swProcessPool *pool, uint32_t worker_num, key_t msgqueu
     pool->ipc_mode = ipc_mode;
     if (ipc_mode > SW_IPC_NONE)
     {
+        // mainly is read IPC message, then do is, manager会用这个创建 task worker, base mode的reactor会用这个创建 event worker
         pool->main_loop = swProcessPool_worker_loop;
     }
 
@@ -382,6 +385,7 @@ void swProcessPool_shutdown(swProcessPool *pool)
     pool->started = 0;
 }
 
+//spawn workers(event/task) and run its event loop
 pid_t swProcessPool_spawn(swProcessPool *pool, swWorker *worker)
 {
     pid_t pid = swoole_fork(0);
@@ -456,6 +460,7 @@ void swProcessPool_set_max_request(swProcessPool *pool, uint32_t max_request, ui
     pool->max_request_grace = max_request_grace;
 }
 
+// mainly is for task worker
 static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
 {
     struct
@@ -527,6 +532,7 @@ static int swProcessPool_worker_loop(swProcessPool *pool, swWorker *worker)
         }
         else
         {
+            //task worker
             n = read(worker->pipe_worker->fd, &out.buf, sizeof(out.buf));
             if (n < 0 && errno != EINTR)
             {
@@ -732,6 +738,7 @@ int swProcessPool_add_worker(swProcessPool *pool, swWorker *worker)
     return SW_OK;
 }
 
+//run and wait event
 int swProcessPool_wait(swProcessPool *pool)
 {
     int pid, new_pid;
@@ -754,6 +761,7 @@ int swProcessPool_wait(swProcessPool *pool)
             SwooleWG.signal_alarm = 0;
             swTimer_select(SwooleTG.timer);
         }
+        //监听子进程事件
         if (pid < 0)
         {
             if (SwooleG.running == 0)

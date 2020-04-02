@@ -104,11 +104,17 @@ static void swFactoryProcess_free(swFactory *factory)
     }
 }
 
+//start manager process
 static int swFactoryProcess_create_pipes(swFactory *factory)
 {
     swServer *serv = (swServer *) factory->ptr;
+    //dispatch mode, 默认为SW_DISPATCH_FDMOD
+    //create event workers
+    //一个reactor对应几个worker
+    //保存在factory.object字段, 存的pipe和pipeBuffer
     swFactoryProcess *object = (swFactoryProcess *) serv->factory.object;
 
+    //创建
     object->pipes = (swPipe *) sw_calloc(serv->worker_num, sizeof(swPipe));
     if (object->pipes == NULL)
     {
@@ -119,7 +125,6 @@ static int swFactoryProcess_create_pipes(swFactory *factory)
     for (uint32_t i = 0; i < serv->worker_num; i++)
     {
         int kernel_buffer_size = SW_UNIXSOCK_MAX_BUF_SIZE;
-
         if (swPipeUnsock_create(&object->pipes[i], 1, SOCK_DGRAM) < 0)
         {
             sw_free(object->pipes);

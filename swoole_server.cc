@@ -2219,6 +2219,7 @@ static PHP_METHOD(swoole_server, __construct)
     size_t host_len = 0;
     zend_long sock_type = SW_SOCK_TCP;
     zend_long serv_port = 0;
+    //default MODE is PROCESS
     zend_long serv_mode = SW_MODE_PROCESS;
 
     //only cli env
@@ -2261,6 +2262,7 @@ static PHP_METHOD(swoole_server, __construct)
         RETURN_FALSE;
     }
 
+    //初始化的是BASE
     swServer_init(serv);
     serv->ptr2 = sw_zval_dup(zserv);
     php_swoole_server_set_server(zserv, serv);
@@ -2270,6 +2272,7 @@ static PHP_METHOD(swoole_server, __construct)
         serv->reactor_num = 1;
         serv->worker_num = 1;
     }
+    //设置为用户设置的
     serv->factory_mode = serv_mode;
 
     /* primary port */

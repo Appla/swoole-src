@@ -163,6 +163,7 @@ int swServer_master_onAccept(swReactor *reactor, swEvent *event)
             sock->ssl = NULL;
         }
 #endif
+        //已知 BASE mode为1
         if (serv->single_thread)
         {
             if (swServer_connection_incoming(serv, reactor, conn) < 0)
@@ -523,6 +524,7 @@ int swServer_create_task_workers(swServer *serv)
     key_t key = 0;
     int ipc_mode;
 
+    // 不同的IPC方式有不同的设置
     if (serv->task_ipc_mode == SW_TASK_IPC_MSGQUEUE || serv->task_ipc_mode == SW_TASK_IPC_PREEMPTIVE)
     {
         key = serv->message_queue_key;
@@ -534,10 +536,12 @@ int swServer_create_task_workers(swServer *serv)
     }
     else
     {
+        //默认的IPC方式
         ipc_mode = SW_IPC_UNIXSOCK;
     }
 
     swProcessPool *pool = &serv->gs->task_workers;
+    //init share config for all task worker processes, IPC DEFAULT is socketpair, UDP
     if (swProcessPool_create(pool, serv->task_worker_num, key, ipc_mode) < 0)
     {
         swWarn("[Master] create task_workers failed");
@@ -548,6 +552,7 @@ int swServer_create_task_workers(swServer *serv)
     swProcessPool_set_start_id(pool, serv->worker_num);
     swProcessPool_set_type(pool, SW_PROCESS_TASKWORKER);
 
+    //TCP type
     if (ipc_mode == SW_IPC_SOCKET)
     {
         char sockfile[sizeof(struct sockaddr_un)];
@@ -641,6 +646,7 @@ int swServer_worker_init(swServer *serv, swWorker *worker)
     return SW_OK;
 }
 
+//worker启动时的回调, base模式下会调用的
 void swServer_worker_start(swServer *serv, swWorker *worker)
 {
     void *hook_args[2];
@@ -785,12 +791,14 @@ int swServer_start(swServer *serv)
      */
     if (serv->task_worker_num > 0 && serv->worker_num > 0)
     {
+        //shm存储交换的数据
         serv->task_result = (swEventData *) sw_shm_calloc(serv->worker_num, sizeof(swEventData));
         if (!serv->task_result)
         {
             swWarn("malloc[serv->task_result] failed");
             return SW_ERR;
         }
+        //通知对方取
         serv->task_notify = (swPipe *) sw_calloc(serv->worker_num, sizeof(swPipe));
         if (!serv->task_notify)
         {
@@ -800,6 +808,7 @@ int swServer_start(swServer *serv)
         }
         for (i = 0; i < serv->worker_num; i++)
         {
+            //eventfd
             if (swPipeNotify_auto(&serv->task_notify[i], 1, 0))
             {
                 sw_shm_free(serv->task_result);
@@ -823,7 +832,9 @@ int swServer_start(swServer *serv)
         }
     }
     serv->running = 1;
-    //factory start
+    //-----------------------------------
+    //===================================
+    //factory start, the manager process will create all workers
     if (factory->start(factory) < 0)
     {
         return SW_ERR;
@@ -867,10 +878,12 @@ void swServer_init(swServer *serv)
     swoole_init();
     bzero(serv, sizeof(swServer));
 
+    //默认值, 后面马上被覆盖了
     serv->factory_mode = SW_MODE_BASE;
 
     serv->reactor_num = SW_REACTOR_NUM > SW_REACTOR_MAX_THREAD ? SW_REACTOR_MAX_THREAD : SW_REACTOR_NUM;
 
+    //默认的调度方式
     serv->dispatch_mode = SW_DISPATCH_FDMOD;
 
     serv->worker_num = SW_CPU_NUM;
