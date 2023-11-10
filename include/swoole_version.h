@@ -25,6 +25,7 @@
 #define SWOOLE_VERSION "5.1.0"
 #define SWOOLE_VERSION_ID 50100
 #define SWOOLE_API_VERSION_ID 0x202208a
+#define SWOOLE_REVERSION "20230929"
 
 #define SWOOLE_BUG_REPORT                                                                                              \
     "A bug occurred in Swoole-v" SWOOLE_VERSION ", please report it.\n"                                                \

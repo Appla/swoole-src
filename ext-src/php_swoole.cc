@@ -802,6 +802,7 @@ PHP_MINFO_FUNCTION(swoole) {
     php_info_print_table_header(2, "Swoole", "enabled");
     php_info_print_table_row(2, "Author", "Swoole Team <team@swoole.com>");
     php_info_print_table_row(2, "Version", SWOOLE_VERSION);
+    php_info_print_table_row(2, "Reversion", SWOOLE_REVERSION);
     snprintf(buf, sizeof(buf), "%s %s", __DATE__, __TIME__);
     php_info_print_table_row(2, "Built", buf);
 #if defined(SW_USE_THREAD_CONTEXT)
