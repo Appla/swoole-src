@@ -166,8 +166,8 @@
 /**
  * HTTP Protocol
  */
-#define SW_HTTP_SERVER_SOFTWARE "swoole-http-server"
-#define SW_HTTP_SERVER_BOUNDARY_PREKEY "SwooleBoundary"
+#define SW_HTTP_SERVER_SOFTWARE "KBPS"
+#define SW_HTTP_SERVER_BOUNDARY_PREKEY "KBPSBoundary"
 #define SW_HTTP_SERVER_BOUNDARY_TOTAL_SIZE 39
 #define SW_HTTP_SERVER_PART_HEADER 256
 #define SW_HTTP_PARAM_MAX_NUM 128
@@ -200,7 +200,7 @@ footer { border-top: 1px solid #ccc; } \
 a { color: #0969da; } \
 </style>"
 
-#define SW_HTTP_POWER_BY "<footer><i>Powered by Swoole</i></footer>"
+#define SW_HTTP_POWER_BY "<footer><i>Powered by KBPS</i></footer>"
 
 #define SW_HTTP_PAGE_400                                                                                               \
     "<html><body>" SW_HTTP_PAGE_CSS "<h1>HTTP 400 Bad Request</h1>" SW_HTTP_POWER_BY "</body></html>"
@@ -219,8 +219,8 @@ a { color: #0969da; } \
 #define SW_HTTP2_DEFAULT_INIT_WINDOW_SIZE ((1 << 16) - 1)
 #define SW_HTTP2_DEFAULT_MAX_HEADER_LIST_SIZE UINT_MAX
 
-#define SW_HTTP_CLIENT_USERAGENT "swoole-http-client"
-#define SW_HTTP_CLIENT_BOUNDARY_PREKEY "----SwooleBoundary"
+#define SW_HTTP_CLIENT_USERAGENT "KBHC/0.5.1"
+#define SW_HTTP_CLIENT_BOUNDARY_PREKEY "----KBPSBoundary"
 #define SW_HTTP_CLIENT_BOUNDARY_TOTAL_SIZE 39
 #define SW_HTTP_FORM_RAW_DATA_FMT "--%.*s\r\nContent-Disposition: form-data; name=\"%.*s\"\r\n\r\n"
 #define SW_HTTP_FORM_RAW_DATA_FMT_LEN 8
