@@ -352,12 +352,9 @@ static void fatal_error(int code, const char *format, ...) {
     zend_object *exception =
         zend_throw_exception(swoole_error_ce, swoole::std_string::vformat(format, args).c_str(), code);
     va_end(args);
-    if (EG(bailout)) {
-        zend_bailout();
-    } else {
-        zend_exception_error(exception, E_ERROR);
-        exit(255);
-    }
+
+    zend_exception_error(exception, E_ERROR);
+    exit(255);
 }
 
 static void bug_report_message_init() {
@@ -996,7 +993,24 @@ PHP_RINIT_FUNCTION(swoole) {
         && !(CG(compiler_options) & ZEND_COMPILE_PRELOAD)
 #endif
     ) {
+        // https://github.com/swoole/swoole-src/issues/5182
+        /**
+         * xdebug will hook zend_execute_ex to xdebug_execute_ex.
+         * This would cause php_swoole_load_library function not to execute correctly, so it must be replaced
+         * with the execute_ex function.
+         */
+        void (*old_zend_execute_ex)(zend_execute_data *execute_data) = nullptr;
+        if (UNEXPECTED(zend_execute_ex != execute_ex)) {
+            old_zend_execute_ex = zend_execute_ex;
+            zend_execute_ex = execute_ex;
+        }
+
         php_swoole_load_library();
+
+        if (UNEXPECTED(old_zend_execute_ex)) {
+            zend_execute_ex = old_zend_execute_ex;
+            old_zend_execute_ex = nullptr;
+        }
     }
 
 #ifdef ZEND_SIGNALS
