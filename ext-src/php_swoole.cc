@@ -76,6 +76,7 @@ static PHP_FUNCTION(swoole_ignore_error);
 static PHP_FUNCTION(swoole_get_local_ip);
 static PHP_FUNCTION(swoole_get_local_mac);
 static PHP_FUNCTION(swoole_hashcode);
+static PHP_FUNCTION(swoole_load_library);
 static PHP_FUNCTION(swoole_mime_type_add);
 static PHP_FUNCTION(swoole_mime_type_set);
 static PHP_FUNCTION(swoole_mime_type_delete);
@@ -178,6 +179,10 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_hashcode, 0, 0, 1)
     ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_load_library, 0, 0, 0)
+    ZEND_ARG_INFO(0, force)
+ZEND_END_ARG_INFO()
+
 /* add/set */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_swoole_mime_type_write, 0, 0, 2)
     ZEND_ARG_INFO(0, suffix)
@@ -220,6 +225,7 @@ const zend_function_entry swoole_functions[] = {
     PHP_FE(swoole_error_log_ex, arginfo_swoole_error_log_ex)
     PHP_FE(swoole_ignore_error, arginfo_swoole_ignore_error)
     PHP_FE(swoole_hashcode, arginfo_swoole_hashcode)
+    PHP_FE(swoole_load_library, arginfo_swoole_load_library)
     PHP_FE(swoole_mime_type_add, arginfo_swoole_mime_type_write)
     PHP_FE(swoole_mime_type_set, arginfo_swoole_mime_type_write)
     PHP_FE(swoole_mime_type_delete, arginfo_swoole_mime_type_delete)
@@ -1164,6 +1170,22 @@ static PHP_FUNCTION(swoole_hashcode) {
     default:
         RETURN_FALSE;
     }
+}
+
+static PHP_FUNCTION(swoole_load_library) {
+    zend_bool force = 0;
+    ZEND_PARSE_PARAMETERS_START(0, 1)
+        Z_PARAM_OPTIONAL
+        Z_PARAM_BOOL(force)
+    ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
+    if (!force) {
+        zval *enable_library = zend_get_constant_str(ZEND_STRL("SWOOLE_LIBRARY"));
+        force = (enable_library == NULL || !zval_is_true(enable_library));
+    }
+    if (force) {
+        php_swoole_load_library();
+    }
+    RETURN_BOOL(force);
 }
 
 static PHP_FUNCTION(swoole_clear_error) {
