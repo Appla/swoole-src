@@ -57,12 +57,12 @@ void json_decode(zval *return_value, const char *str, size_t str_len, zend_long 
     }
 
     if (depth <= 0) {
-        php_error_docref(NULL, E_WARNING, "Depth must be greater than zero");
+        zend_throw_exception(zend_ce_value_error, "depth must be greater than zero", 0);
         RETURN_NULL();
     }
 
     if (depth > INT_MAX) {
-        php_error_docref(NULL, E_WARNING, "Depth must be lower than %d", INT_MAX);
+        zend_throw_exception_ex(zend_ce_value_error, 0, "depth must be less than %d", INT_MAX);
         RETURN_NULL();
     }
     php_json_decode_ex(return_value, (char *) str, str_len, options, depth);
