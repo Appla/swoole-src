@@ -26,12 +26,13 @@ struct RWLockImpl {
     pthread_rwlockattr_t attr;
 };
 
-RWLock::RWLock(int use_in_process) : Lock() {
-    if (use_in_process) {
+RWLock::RWLock(int flags) : Lock() {
+    if (flags & PROCESS_SHARED) {
         impl = (RWLockImpl *) sw_mem_pool()->alloc(sizeof(*impl));
         if (impl == nullptr) {
             throw std::bad_alloc();
         }
+        auto_dtor_ = (flags & NO_AUTO_DTOR) == 0;
         shared_ = true;
     } else {
         impl = new RWLockImpl();
@@ -40,7 +41,7 @@ RWLock::RWLock(int use_in_process) : Lock() {
 
     type_ = RW_LOCK;
     pthread_rwlockattr_init(&impl->attr);
-    if (use_in_process == 1) {
+    if (shared_) {
         pthread_rwlockattr_setpshared(&impl->attr, PTHREAD_PROCESS_SHARED);
     }
     if (pthread_rwlock_init(&impl->_lock, &impl->attr) != 0) {
@@ -69,6 +70,7 @@ int RWLock::trylock() {
 }
 
 RWLock::~RWLock() {
+    if (!is_auto_dtor()) return;
     pthread_rwlockattr_destroy(&impl->attr);
     pthread_rwlock_destroy(&impl->_lock);
     if (shared_) {

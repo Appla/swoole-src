@@ -141,13 +141,16 @@ static PHP_METHOD(swoole_lock, __construct) {
     }
 
     zend_long type = Lock::MUTEX;
-    char *filelock;
-    size_t filelock_len = 0;
+    zend_string *filelock = NULL;;
+    zend_long flags = 0;
 
-    if (zend_parse_parameters(ZEND_NUM_ARGS(), "|ls", &type, &filelock, &filelock_len) == FAILURE) {
-        RETURN_FALSE;
-    }
+    ZEND_PARSE_PARAMETERS_START(0, 2)
+    Z_PARAM_OPTIONAL
+    Z_PARAM_LONG(type)
+    Z_PARAM_STR_OR_LONG(filelock, flags)
+    ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
+    int lk_flags = Mutex::PROCESS_SHARED | (flags & 4 ? Mutex::NO_AUTO_DTOR : 0);
     switch (type) {
     case Lock::FILE_LOCK:
     case Lock::SEM:
@@ -157,17 +160,17 @@ static PHP_METHOD(swoole_lock, __construct) {
         break;
 #ifdef HAVE_SPINLOCK
     case Lock::SPIN_LOCK:
-        lock = new SpinLock(1);
+        lock = new SpinLock(lk_flags);
         break;
 #endif
 #ifdef HAVE_RWLOCK
     case Lock::RW_LOCK:
-        lock = new RWLock(1);
+        lock = new RWLock(lk_flags);
         break;
 #endif
     case Lock::MUTEX:
     default:
-        lock = new Mutex(Mutex::PROCESS_SHARED);
+        lock = new Mutex(lk_flags | (flags & 2 ? Mutex::ROBUST : 0));
         break;
     }
     php_swoole_lock_set_ptr(ZEND_THIS, lock);
@@ -184,9 +187,10 @@ static PHP_METHOD(swoole_lock, lock) {
 static PHP_METHOD(swoole_lock, lockwait) {
     double timeout = 1.0;
 
-    if (zend_parse_parameters(ZEND_NUM_ARGS(), "d", &timeout) == FAILURE) {
-        RETURN_FALSE;
-    }
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+    Z_PARAM_DOUBLE(timeout)
+    ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
+
     Lock *lock = php_swoole_lock_get_and_check_ptr(ZEND_THIS);
     if (lock->get_type() != Lock::MUTEX) {
         zend_throw_exception(swoole_exception_ce, "only mutex supports lockwait", -2);
@@ -197,7 +201,7 @@ static PHP_METHOD(swoole_lock, lockwait) {
         zend_throw_exception(swoole_exception_ce, "wrong lock type", -3);
         RETURN_FALSE;
     }
-    SW_LOCK_CHECK_RETURN(mutex->lock_wait((int) timeout * 1000));
+    SW_LOCK_CHECK_RETURN(mutex->lock_wait((int)(timeout * 1000)));
 }
 
 static PHP_METHOD(swoole_lock, unlock) {

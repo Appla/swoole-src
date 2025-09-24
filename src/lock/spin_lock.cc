@@ -21,12 +21,13 @@
 
 namespace swoole {
 
-SpinLock::SpinLock(int use_in_process) : Lock() {
-    if (use_in_process) {
+SpinLock::SpinLock(int flags) : Lock() {
+    if (flags) {
         impl = (pthread_spinlock_t *) sw_mem_pool()->alloc(sizeof(*impl));
         if (impl == nullptr) {
             throw std::bad_alloc();
         }
+        auto_dtor_ = (flags & NO_AUTO_DTOR) == 0;
         shared_ = true;
     } else {
         impl = new pthread_spinlock_t();
@@ -34,7 +35,7 @@ SpinLock::SpinLock(int use_in_process) : Lock() {
     }
 
     type_ = SPIN_LOCK;
-    if (pthread_spin_init(impl, use_in_process) != 0) {
+    if (pthread_spin_init(impl, flags & PROCESS_SHARED ? PTHREAD_PROCESS_SHARED : PTHREAD_PROCESS_PRIVATE) != 0) {
         throw std::system_error(errno, std::generic_category(), "pthread_spin_init() failed");
     }
 }
@@ -60,6 +61,7 @@ int SpinLock::trylock_rd() {
 }
 
 SpinLock::~SpinLock() {
+    if (!is_auto_dtor()) return;
     pthread_spin_destroy(impl);
     if (shared_) {
         sw_mem_pool()->free((void *) impl);

@@ -35,6 +35,11 @@ class Lock {
         SPIN_LOCK = 5,
         ATOMIC_LOCK = 6,
     };
+    enum Flag {
+        PROCESS_SHARED = 1,
+        ROBUST = 2,
+        NO_AUTO_DTOR = 4,
+    };
     Type get_type() {
         return type_;
     }
@@ -50,8 +55,12 @@ class Lock {
         type_ = NONE;
         shared_ = false;
     }
+    bool is_auto_dtor() const {
+        return auto_dtor_;
+    }
     enum Type type_;
     bool shared_;
+    bool auto_dtor_ = true;
 };
 
 struct MutexImpl;
@@ -61,11 +70,6 @@ class Mutex : public Lock {
     int flags_;
 
   public:
-    enum Flag {
-        PROCESS_SHARED = 1,
-        ROBUST = 2,
-    };
-
     Mutex(int flags);
     ~Mutex();
     int lock_rd() override;
@@ -83,7 +87,7 @@ class RWLock : public Lock {
     RWLockImpl *impl;
 
   public:
-    RWLock(int use_in_process);
+    RWLock(int flags);
     ~RWLock();
     int lock_rd() override;
     int lock() override;
@@ -98,7 +102,7 @@ class SpinLock : public Lock {
     pthread_spinlock_t *impl;
 
   public:
-    SpinLock(int use_in_process);
+    SpinLock(int flags);
     ~SpinLock();
     int lock_rd() override;
     int lock() override;
