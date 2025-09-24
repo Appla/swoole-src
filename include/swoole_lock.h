@@ -50,8 +50,12 @@ class Lock {
         type_ = NONE;
         shared_ = false;
     }
+    bool is_auto_dtor() const {
+        return auto_dtor_;
+    }
     enum Type type_;
     bool shared_;
+    bool auto_dtor_ = true;
 };
 
 struct MutexImpl;
@@ -64,6 +68,7 @@ class Mutex : public Lock {
     enum Flag {
         PROCESS_SHARED = 1,
         ROBUST = 2,
+        NO_AUTO_DTOR = 4,
     };
 
     Mutex(int flags);
