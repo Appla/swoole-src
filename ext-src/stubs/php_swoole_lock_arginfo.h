@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: aa2ff16543143c6d0e8858e9900fa511cffed40c */
+ * Stub hash: f4ea292acfdc79cda0d2798c5ac8bdd5b411d102 */
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_class_Swoole_Lock___construct, 0, 0, 0)
 	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, type, IS_LONG, 0, "SWOOLE_MUTEX")
@@ -18,8 +18,11 @@ ZEND_END_ARG_INFO()
 
 #define arginfo_class_Swoole_Lock_trylock arginfo_class_Swoole_Lock_lock
 
-#define arginfo_class_Swoole_Lock_lock_read arginfo_class_Swoole_Lock_lock
+ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_Swoole_Lock_lock_read, 0, 0, _IS_BOOL, 0)
+	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, timeout, IS_DOUBLE, 1, "null")
+ZEND_END_ARG_INFO()
 
 #define arginfo_class_Swoole_Lock_trylock_read arginfo_class_Swoole_Lock_lock
 
 #define arginfo_class_Swoole_Lock_unlock arginfo_class_Swoole_Lock_lock
+

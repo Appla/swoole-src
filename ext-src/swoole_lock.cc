@@ -183,11 +183,10 @@ static PHP_METHOD(swoole_lock, lockwait) {
     if (!(lock->get_type() == Lock::MUTEX
 #ifdef HAVE_RWLOCK
     || lock->get_type() == Lock::RW_LOCK
-#endif
     )) {
-#ifdef HAVE_RWLOCK
         zend_throw_exception(swoole_exception_ce, "only mutex and rwlock supports lockwait", -2);
 #else
+    )) {
         zend_throw_exception(swoole_exception_ce, "only mutex supports lockwait", -2);
 #endif
 
@@ -200,10 +199,11 @@ static PHP_METHOD(swoole_lock, lockwait) {
             zend_throw_exception(swoole_exception_ce, "wrong lock type", -3);
             RETURN_FALSE;
         }
+        int timeout_msec = static_cast<int>(timeout * 1000);
         if (kind == 1) {
-            SW_LOCK_CHECK_RETURN(rwlock->lock_rd_wait((int) (timeout * 1000)));
+            SW_LOCK_CHECK_RETURN(rwlock->lock_rd_wait(timeout_msec));
         }
-        SW_LOCK_CHECK_RETURN(rwlock->lock_wait((int) (timeout * 1000)));
+        SW_LOCK_CHECK_RETURN(rwlock->lock_wait(timeout_msec));
     }
 #endif
     Mutex *mutex = dynamic_cast<Mutex *>(lock);
@@ -211,7 +211,7 @@ static PHP_METHOD(swoole_lock, lockwait) {
         zend_throw_exception(swoole_exception_ce, "wrong lock type", -3);
         RETURN_FALSE;
     }
-    SW_LOCK_CHECK_RETURN(mutex->lock_wait((int) (timeout * 1000)));
+    SW_LOCK_CHECK_RETURN(mutex->lock_wait(static_cast<int>(timeout * 1000)));
 }
 
 static PHP_METHOD(swoole_lock, unlock) {
@@ -230,6 +230,28 @@ static PHP_METHOD(swoole_lock, trylock_read) {
 }
 
 static PHP_METHOD(swoole_lock, lock_read) {
+    double timeout = 0.0;
+    bool tm_is_null = false;
+
+    ZEND_PARSE_PARAMETERS_START(0, 1)
+    Z_PARAM_OPTIONAL
+    Z_PARAM_DOUBLE_OR_NULL(timeout, tm_is_null)
+    ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
+
+#ifdef HAVE_RWLOCK
+    if (!tm_is_null && timeout >= 0) {
+        if (lock->get_type() != Lock::RW_LOCK) {
+            zend_throw_exception(swoole_exception_ce, "only rwlock supports lock_read with timeout", -2);
+            RETURN_FALSE;
+        }
+        RWLock *rwlock = dynamic_cast<RWLock *>(lock);
+        if (rwlock == nullptr) {
+            zend_throw_exception(swoole_exception_ce, "wrong lock type", -3);
+            RETURN_FALSE;
+        }
+        SW_LOCK_CHECK_RETURN(rwlock->lock_rd_wait(static_cast<int>(timeout * 1000)));
+    }
+#endif
     Lock *lock = php_swoole_lock_get_and_check_ptr(ZEND_THIS);
     SW_LOCK_CHECK_RETURN(lock->lock_rd());
 }
