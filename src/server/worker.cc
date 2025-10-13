@@ -390,7 +390,18 @@ void Server::stop_async_worker(Worker *worker) {
         msg.pid = SwooleG.pid;
         msg.worker_id = worker->id;
 
-        if (gs->event_workers.push_message(SW_WORKER_MESSAGE_STOP, &msg, sizeof(msg)) < 0) {
+        bool rso = gs->event_workers.push_message(SW_WORKER_MESSAGE_STOP, &msg, sizeof(msg)) == 0;
+#ifdef EPERM
+        if (!rso && errno == EPERM) {
+            DataHead ev = {};
+            ev.type = SW_SERVER_EVENT_WORKER_ASYNC_STOP;
+            ev.reactor_id = worker->id;
+            const auto ssz = worker->send_pipe_message(&ev, sizeof(DataHead), SW_PIPE_WORKER);
+            rso = ssz > 0;
+            swoole_trace_log(SW_TRACE_SERVER, "send WORKER_STOP message to manager(%d) failed, fallback to pipemsg from %d(%d), rc=%ld", msg.pid, worker->pid, worker->id, ssz);
+        }
+#endif
+        if (!rso) {
             swoole_sys_warning("failed to push WORKER_STOP message");
         }
     }

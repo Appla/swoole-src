@@ -169,6 +169,11 @@ static int ReactorProcess_onPipeRead(Reactor *reactor, Event *event) {
         serv->call_command_callback(request_id, std::string(packet.data, packet.length));
         break;
     }
+    case SW_SERVER_EVENT_WORKER_ASYNC_STOP: {
+        const auto rc = swoole_kill(serv->get_manager_pid(), SIGIO);
+        swoole_trace_log(SW_TRACE_SERVER, "send SIGIO to manager(%d), rc=%d", serv->get_manager_pid(), rc);
+        break;
+    }
     default:
         break;
     }

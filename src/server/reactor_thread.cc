@@ -385,6 +385,9 @@ static int ReactorThread_onPipeRead(Reactor *reactor, Event *ev) {
             _ev.fd = conn->fd;
             _ev.socket = conn->socket;
             reactor->trigger_close_event(&_ev);
+        } else if (resp->info.type == SW_SERVER_EVENT_WORKER_ASYNC_STOP) {
+            const auto rc = swoole_kill(serv->get_manager_pid(), SIGIO);
+            swoole_trace_log(SW_TRACE_SERVER, "send SIGIO to manager(%d) from reactor=%d, rc=%d", serv->get_manager_pid(), reactor->id, rc);
         } else {
             PacketPtr packet = thread->message_bus.get_packet();
             _send.info = resp->info;
