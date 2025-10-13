@@ -420,6 +420,8 @@ static int ReactorThread_onPipeRead(Reactor *reactor, Event *ev) {
             thread->close_connection(reactor, resp->info.fd);
         } else if (resp->info.type == SW_SERVER_EVENT_CLOSE_FORWARD) {
             serv->factory->end(resp->info.fd, Server::CLOSE_ACTIVELY);
+        } else if (resp->info.type == SW_SERVER_EVENT_WORKER_ASYNC_STOP) {
+            swoole_kill(serv->get_manager_pid(), SIGIO);
         } else {
             PacketPtr packet = thread->message_bus.get_packet();
             _send.info = resp->info;
