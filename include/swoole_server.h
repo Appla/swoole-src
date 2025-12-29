@@ -365,6 +365,10 @@ struct ServerGS {
     int min_fd;
 
     bool called_onStart;
+    // handle emergency restart
+    bool sig_restart;
+    int16_t term_exit_code = 0;
+
     time_t start_time;
     sw_atomic_t connection_num;
     sw_atomic_t *connection_nums = nullptr;
@@ -565,6 +569,8 @@ class Server {
      * No idle work process is available.
      */
     bool scheduler_warning = false;
+    // Which process to restart when fault threshold is reached
+    uint8_t emergency_restart_mode = 0;
 
     int worker_uid = 0;
     int worker_groupid = 0;
@@ -574,6 +580,10 @@ class Server {
      */
     uint32_t max_request = 0;
     uint32_t max_request_grace = 0;
+    // worker process max fault count
+    uint16_t emergency_restart_threshold = 0;
+    // worker process restart interval
+    uint16_t emergency_restart_interval = 0;
 
     network::Socket *udp_socket_ipv4 = nullptr;
     network::Socket *udp_socket_ipv6 = nullptr;

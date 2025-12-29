@@ -1926,6 +1926,22 @@ static PHP_METHOD(swoole_server, __construct) {
         zval_ptr_dtor(&connection_iterator);
     } while (0);
 
+    // For emergency restart
+    do {
+        char *threshold = getenv("SW_EMERGENCY_RESTART_THRESHOLD");
+        if (threshold) {
+            serv->emergency_restart_threshold = static_cast<uint16_t>(atoi(threshold));
+        }
+        char *interval = getenv("SW_EMERGENCY_RESTART_INTERVAL");
+        if (interval) {
+            serv->emergency_restart_interval = static_cast<uint16_t>(atoi(interval));
+        }
+        char *mode = getenv("SW_EMERGENCY_RESTART_MODE");
+        if (mode) {
+            serv->emergency_restart_mode = static_cast<uint8_t>(atoi(mode));
+        }
+    } while (0);
+
     /* info */
     auto port = serv->get_primary_port();
     zend_update_property_long(swoole_server_ce, SW_Z8_OBJ_P(zserv), ZEND_STRL("mode"), serv_mode);

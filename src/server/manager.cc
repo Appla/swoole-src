@@ -19,6 +19,9 @@
 
 #include <unordered_map>
 #include <vector>
+#include <memory>
+#include <chrono>
+#include <mutex>
 
 #if defined(__linux__)
 #include <sys/prctl.h>
@@ -30,6 +33,71 @@ namespace swoole {
 
 using ReloadWorkerList = std::unordered_map<uint32_t, pid_t>;
 
+class TimeSlidingWindowInterface {
+  public:
+    virtual ~TimeSlidingWindowInterface() = default;
+    virtual void add(int count = 1) = 0;
+    virtual uint64_t get_total() const = 0;
+};
+
+template <typename MutexType = std::mutex>
+class TimeSlidingWindow : public TimeSlidingWindowInterface {
+  public:
+    explicit TimeSlidingWindow(int window_size_seconds)
+        : window_size_(window_size_seconds), buckets_(window_size_seconds) {}
+
+    void add(int count = 1) override {
+        std::lock_guard<MutexType> lock(mutex_);
+
+        long long current_time = get_current_second();
+        int idx = current_time % window_size_;
+
+        if (buckets_[idx].timestamp != current_time) {
+            buckets_[idx].timestamp = current_time;
+            buckets_[idx].count = 0;
+        }
+
+        buckets_[idx].count += count;
+    }
+
+    uint64_t get_total() const override {
+        std::lock_guard<MutexType> lock(mutex_);
+
+        long long current_time = get_current_second();
+        long long total = 0;
+
+        for (const auto &bucket : buckets_) {
+            if (current_time >= bucket.timestamp && (current_time - bucket.timestamp) < window_size_) {
+                total += bucket.count;
+            }
+        }
+        return total;
+    }
+
+  private:
+    struct Bucket {
+        uint64_t timestamp = -1;
+        uint64_t count = 0;
+    };
+
+    int window_size_;
+    std::vector<Bucket> buckets_;
+    mutable MutexType mutex_;
+
+    static uint64_t get_current_second() {
+        using namespace std::chrono;
+        return duration_cast<seconds>(steady_clock::now().time_since_epoch()).count();
+    }
+};
+
+struct NullMutex {
+    void lock() {}
+    void unlock() {}
+    bool try_lock() {
+        return true;
+    }
+};
+
 struct Manager {
     bool reload_all_worker;
     bool reload_task_worker;
@@ -39,6 +107,8 @@ struct Manager {
     Server *server_;
 
     std::vector<pid_t> kill_workers;
+    uint32_t fault_threshold = 0;
+    std::unique_ptr<TimeSlidingWindowInterface> request_window;
 
     void wait(Server *_server);
     void add_timeout_killer(Worker *workers, int n);
@@ -46,6 +116,7 @@ struct Manager {
     static void signal_handler(int sig);
     static void timer_callback(Timer *timer, TimerNode *tnode);
     static void kill_timeout_process(Timer *timer, TimerNode *tnode);
+    int stop_server_if_segfault(const ExitStatus &exit_status);
 };
 
 void Manager::timer_callback(Timer *timer, TimerNode *tnode) {
@@ -185,6 +256,35 @@ void Server::check_worker_exit_status(Worker *worker, const ExitStatus &exit_sta
     }
 }
 
+int Manager::stop_server_if_segfault(const ExitStatus &exit_status) {
+    auto psc = exit_status.get_status();
+    if (WIFSIGNALED(psc) && (WTERMSIG(psc) == SIGSEGV || WTERMSIG(psc) == SIGBUS)) {
+        if (!request_window) {
+            return 0;
+        }
+        request_window->add();
+        auto fault_count = request_window->get_total();
+        if (fault_count > fault_threshold) {
+            swoole_error_log(SW_LOG_ERROR,
+                             SW_ERROR_SERVER_WORKER_ABNORMAL_EXIT,
+                             "The server is being stopped because the number of consecutive segmentation faults has "
+                             "exceeded the limit(%u).",
+                             fault_count);
+            auto gs = server_->gs;
+            if (getpid() == gs->manager_pid) {
+                if (server_->emergency_restart_mode == 1) {
+                    gs->sig_restart = true;
+                } else {
+                    gs->sig_restart = false;
+                    gs->term_exit_code = 1;
+                }
+                return swoole_kill(gs->master_pid, SIGTERM) == 0;
+            }
+        }
+    }
+    return 0;
+}
+
 void Manager::wait(Server *_server) {
     server_ = _server;
     server_->manager = this;
@@ -227,6 +327,12 @@ void Manager::wait(Server *_server) {
 #else
         SW_START_SLEEP;
 #endif
+    }
+
+    // For emergency restart
+    if (_server->emergency_restart_threshold > 0 && _server->emergency_restart_interval > 0) {
+        fault_threshold = _server->emergency_restart_threshold;
+        request_window = std::unique_ptr<TimeSlidingWindowInterface>(new TimeSlidingWindow<NullMutex>(_server->emergency_restart_interval));
     }
 
     if (_server->isset_hook(Server::HOOK_MANAGER_START)) {
@@ -343,6 +449,10 @@ void Manager::wait(Server *_server) {
             }
         }
         if (_server->running) {
+            if (fault_threshold > 0 && stop_server_if_segfault(exit_status)) {
+                _server->running = false;
+                continue;
+            }
             // event workers
             SW_LOOP_N(_server->worker_num) {
                 Worker *worker = _server->get_worker(i);
